@@ -28,6 +28,13 @@ const input_filename = "src/01_input.txt";
 
 const numbers = [_][]const u8{ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" };
 
+const Numerals = enum {
+    digits,
+    digits_and_numbers,
+};
+
+const Options = struct { numerals: Numerals = .digits };
+
 pub fn main() !void {
     var allocator = std.heap.page_allocator;
     var stat = try std.fs.cwd().statFile(input_filename);
@@ -39,30 +46,33 @@ pub fn main() !void {
     defer file.close();
 
     _ = try file.readAll(buffer);
-    const total = sumCalibrationValues(buffer);
+    const digits_total = sumCalibrationValues(buffer, .{});
+    const bugfix_total = sumCalibrationValues(buffer, .{ .numerals = .digits_and_numbers });
 
     var writer = std.io.getStdOut().writer();
-    try writer.print("{}\n", .{total});
+    try writer.print("digits: {}\n", .{digits_total});
+    try writer.print("bugfix: {}\n", .{bugfix_total});
 }
 
-fn sumCalibrationValues(document: []const u8) u32 {
+fn sumCalibrationValues(document: []const u8, options: Options) u32 {
     var i: u32 = 0;
     var total: u32 = 0;
     var lines = std.mem.split(u8, document, "\n");
     while (lines.next()) |line| : (i += 1) {
         if (line.len == 0) continue;
         std.debug.print("{}: {s}\n", .{ i, line });
-        total += getLineValue(line);
+        total += getLineValue(line, options.numerals);
     }
 
     return total;
 }
 
-fn getLineValue(line: []const u8) u32 {
+fn getLineValue(line: []const u8, numerals: Numerals) u32 {
     var first_digit: ?u32 = null;
     var last_digit: ?u32 = null;
 
     for (line, 0..) |c, i| {
+        // Check ASCII ranges for 0—9.
         if (c >= 48 and c <= 57) {
             const value = c - 48;
             if (first_digit == null) first_digit = value;
@@ -70,6 +80,10 @@ fn getLineValue(line: []const u8) u32 {
             continue;
         }
 
+        // Skip numbers without bugfix option.
+        if (numerals != .digits_and_numbers) continue;
+
+        // Check any named number starting at this index.
         var ordinal: u32 = 0;
         for (numbers) |number| {
             ordinal += 1;
@@ -95,7 +109,7 @@ test "example test" {
         \\a1b2c3d4e5f
         \\treb7uchet
     ;
-    const total = sumCalibrationValues(document);
+    const total = sumCalibrationValues(document, .{});
     try std.testing.expectEqual(@as(u32, 142), total);
 }
 
@@ -107,6 +121,6 @@ test "one digit" {
         \\treb7uchet
         \\asdfasdf1bbb
     ;
-    const total = sumCalibrationValues(document);
+    const total = sumCalibrationValues(document, .{});
     try std.testing.expectEqual(@as(u32, 153), total);
 }
