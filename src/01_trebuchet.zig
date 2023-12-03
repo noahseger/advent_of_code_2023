@@ -36,18 +36,10 @@ const Numerals = enum {
 const Options = struct { numerals: Numerals = .digits };
 
 pub fn main() !void {
-    var allocator = std.heap.page_allocator;
-    var stat = try std.fs.cwd().statFile(input_filename);
-    var buffer = try allocator.alloc(u8, stat.size);
-    defer allocator.free(buffer);
+    const document = @embedFile("01_input.txt");
 
-    var file = try std.fs.cwd().openFile(input_filename, .{});
-
-    defer file.close();
-
-    _ = try file.readAll(buffer);
-    const digits_total = sumCalibrationValues(buffer, .{});
-    const bugfix_total = sumCalibrationValues(buffer, .{ .numerals = .digits_and_numbers });
+    const digits_total = sumCalibrationValues(document, .{});
+    const bugfix_total = sumCalibrationValues(document, .{ .numerals = .digits_and_numbers });
 
     var writer = std.io.getStdOut().writer();
     try writer.print("digits: {}\n", .{digits_total});
