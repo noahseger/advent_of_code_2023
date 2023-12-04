@@ -61,9 +61,23 @@ const std = @import("std");
 
 const Options = struct { allocator: std.mem.Allocator = std.heap.page_allocator };
 
-const Solution = struct { sum_of_part_numbers: u32, sum_of_gear_ratios: u32 };
+const Solution = struct { sum_of_part_numbers: u32, sum_of_gear_ratios: u64 };
 
-const Symbol = struct { value: u8, line_number: usize, i: usize, gears: std.ArrayList(u32) };
+const Symbol = struct {
+    const Self = @This();
+
+    value: u8,
+    line_number: usize,
+    i: usize,
+    gear_count: u32 = 0,
+    gear_ratio: u64 = 1,
+
+    fn addGear(self: *Self, gear: u32) void {
+        // std.debug.print("{}, gear={}\n", .{ self, gear });
+        self.gear_count += 1;
+        self.gear_ratio *= gear;
+    }
+};
 
 const PartNumber = struct { value: u32, line_number: usize, i_0: usize, i_n: usize };
 
@@ -75,7 +89,7 @@ pub fn main() !void {
 
 pub fn solve(input: []const u8, options: Options) !Solution {
     var sum_of_part_numbers: u32 = 0;
-    var sum_of_gear_ratios: u32 = 0;
+    var sum_of_gear_ratios: u64 = 0;
 
     // Track locations of all symbols
     // TODO: Optimize by only keeping previous line.
@@ -120,9 +134,7 @@ pub fn solve(input: []const u8, options: Options) !Solution {
                 }
 
                 if (c != '.') {
-                    const gears = std.ArrayList(u32).init(options.allocator);
-                    defer gears.deinit();
-                    const symbol = Symbol{ .value = c, .line_number = line_number, .i = i, .gears = gears };
+                    var symbol = Symbol{ .value = c, .line_number = line_number, .i = i };
                     try symbols.append(symbol);
                 }
             }
@@ -134,36 +146,39 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         const l = possible_part_number.line_number;
         const i_0 = possible_part_number.i_0;
         const i_n = possible_part_number.i_n;
-        for (symbols.items) |symbol| {
+        // std.debug.print("{}\n", .{possible_part_number});
+
+        var symbol_index: usize = 0;
+        while (symbol_index < symbols.items.len) : (symbol_index += 1) {
+            var symbol = &symbols.items[symbol_index];
+
             const i = symbol.i;
+            // std.debug.print("{}\n", .{symbol});
             if (symbol.line_number == l) { // Symbol on same line
                 if (i_n == i - 1 or i_0 == i + 1) {
                     sum_of_part_numbers += possible_part_number.value;
-                    if (symbol.value == '*') try symbol.gears.append(possible_part_number.value);
+                    if (symbol.value == '*') symbol.addGear(possible_part_number.value);
                 }
             } else if (l > 0 and symbol.line_number == l - 1) { // Symbol on previous line
                 if (i_n == i - 1 or i_n == i or i_0 == i or i_0 == i + 1 or (i_0 <= i and i_n >= i)) {
                     sum_of_part_numbers += possible_part_number.value;
-                    if (symbol.value == '*') try symbol.gears.append(possible_part_number.value);
+                    if (symbol.value == '*') symbol.addGear(possible_part_number.value);
                 }
             } else if (symbol.line_number == l + 1) { // Symbol on next line
                 if (i_n == i - 1 or i_n == i or i_0 == i or i_0 == i + 1 or (i_0 <= i and i_n >= i)) {
                     sum_of_part_numbers += possible_part_number.value;
-                    if (symbol.value == '*') try symbol.gears.append(possible_part_number.value);
+                    if (symbol.value == '*') symbol.addGear(possible_part_number.value);
                 }
             }
         }
+    }
 
-        // Gear up
-        for (symbols.items) |symbol| {
-            if (symbol.gears.items.len > 1) {
-                var partial_gear_ratio_total = 1;
-                for (symbol.gears.items) |gear_ratio_value| {
-                    partial_gear_ratio_total *= gear_ratio_value;
-                }
-
-                sum_of_gear_ratios += partial_gear_ratio_total;
-            }
+    // Gear up
+    // std.debug.print("Adding gear ratios...\n", .{});
+    for (symbols.items) |symbol| {
+        // std.debug.print("{}\n", .{symbol});
+        if (symbol.gear_count > 1) {
+            sum_of_gear_ratios += symbol.gear_ratio;
         }
     }
 
@@ -185,5 +200,5 @@ test "example test" {
     ;
     const solution = try solve(input, .{});
     try std.testing.expectEqual(@as(u32, 4361), solution.sum_of_part_numbers);
-    try std.testing.expectEqual(@as(u32, 467835), solution.sum_of_gear_ratios);
+    try std.testing.expectEqual(@as(u64, 467835), solution.sum_of_gear_ratios);
 }
