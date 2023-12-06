@@ -103,14 +103,14 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         var body = line_chunks.next().?;
         var card_chunks = std.mem.split(u8, body, " |");
 
-        var winning_numbers_cache = std.StringHashMap(bool).init(options.allocator);
+        var winning_numbers_cache = std.StringHashMap(void).init(options.allocator);
         defer winning_numbers_cache.deinit();
 
         var winning_numbers_chunk = card_chunks.next().?;
         var raw_winning_numbers = std.mem.window(u8, winning_numbers_chunk, 3, 3);
         while (raw_winning_numbers.next()) |raw_winning_number| {
             std.debug.print("winning_number={s}\n", .{raw_winning_number});
-            try winning_numbers_cache.put(raw_winning_number, true);
+            try winning_numbers_cache.put(raw_winning_number, {});
         }
 
         var my_numbers_chunk = card_chunks.next().?;
@@ -119,7 +119,7 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         var match_count: u32 = 0;
         while (raw_my_numbers.next()) |raw_my_number| {
             std.debug.print("my_number={s}\n", .{raw_my_number});
-            const is_winning = winning_numbers_cache.get(raw_my_number) orelse false;
+            const is_winning = winning_numbers_cache.contains(raw_my_number);
             if (is_winning) match_count += 1;
             if (is_winning and card_points == 0) {
                 card_points = 1;
