@@ -109,7 +109,7 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         var winning_numbers_chunk = card_chunks.next().?;
         var raw_winning_numbers = std.mem.window(u8, winning_numbers_chunk, 3, 3);
         while (raw_winning_numbers.next()) |raw_winning_number| {
-            std.debug.print("winning_number={s}\n", .{raw_winning_number});
+            // std.debug.print("winning_number={s}\n", .{raw_winning_number});
             try winning_numbers_cache.put(raw_winning_number, {});
         }
 
@@ -118,7 +118,7 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         var card_points: u32 = 0;
         var match_count: u32 = 0;
         while (raw_my_numbers.next()) |raw_my_number| {
-            std.debug.print("my_number={s}\n", .{raw_my_number});
+            // std.debug.print("my_number={s}\n", .{raw_my_number});
             const is_winning = winning_numbers_cache.contains(raw_my_number);
             if (is_winning) match_count += 1;
             if (is_winning and card_points == 0) {
@@ -134,14 +134,15 @@ pub fn solve(input: []const u8, options: Options) !Solution {
 
     var card_id: u32 = 1;
     var scratchcards: u32 = 0;
+    var memo = std.AutoHashMap(u32, u32).init(options.allocator);
     while (card_id <= card_match_cache.count()) : (card_id += 1) {
-        scratchcards += duplicateScratchcards(card_id, card_match_cache);
+        scratchcards += try duplicateScratchcards(card_id, card_match_cache, &memo);
     }
 
     return .{ .points = points, .scratchcards = scratchcards };
 }
 
-fn duplicateScratchcards(card_id: u32, card_match_cache: std.AutoHashMap(u32, u32)) u32 {
+fn duplicateScratchcards(card_id: u32, card_match_cache: std.AutoHashMap(u32, u32), memo: *std.AutoHashMap(u32, u32)) !u32 {
     // std.debug.print("card_id={}, match_count={any}\n", .{ card_id, card_match_cache.get(card_id) });
 
     if (!card_match_cache.contains(card_id)) return 0;
@@ -150,7 +151,13 @@ fn duplicateScratchcards(card_id: u32, card_match_cache: std.AutoHashMap(u32, u3
     var scratchcards: u32 = 1;
     var next_card_id: u32 = card_id + 1;
     while (next_card_id <= card_id + match_count) : (next_card_id += 1) {
-        scratchcards += duplicateScratchcards(next_card_id, card_match_cache);
+        if (memo.contains(next_card_id)) {
+            scratchcards += memo.get(next_card_id).?;
+        } else {
+            var next_scratchcards = try duplicateScratchcards(next_card_id, card_match_cache, memo);
+            try memo.put(next_card_id, next_scratchcards);
+            scratchcards += next_scratchcards;
+        }
     }
 
     return scratchcards;
