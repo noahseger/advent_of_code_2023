@@ -53,6 +53,30 @@
 // Now, you can determine the total winnings of this set of hands by adding up the result of multiplying each hand's bid with its rank (765 * 1 + 220 * 2 + 28 * 3 + 684 * 4 + 483 * 5). So the total winnings in this example are 6440.
 //
 // Find the rank of every hand in your set. What are the total winnings?
+//
+// --- Part Two ---
+//
+// To make things a little more interesting, the Elf introduces one additional rule. Now, J cards are jokers - wildcards that can act like whatever card would make the hand the strongest type possible.
+//
+// To balance this, J cards are now the weakest individual cards, weaker even than 2. The other cards stay in the same order: A, K, Q, T, 9, 8, 7, 6, 5, 4, 3, 2, J.
+//
+// J cards can pretend to be whatever card is best for the purpose of determining hand type; for example, QJJQ2 is now considered four of a kind. However, for the purpose of breaking ties between two hands of the same type, J is always treated as J, not the card it's pretending to be: JKKK2 is weaker than QQQQ2 because J is weaker than Q.
+//
+// Now, the above example goes very differently:
+//
+// 32T3K 765
+// T55J5 684
+// KK677 28
+// KTJJT 220
+// QQQJA 483
+//
+//     32T3K is still the only one pair; it doesn't contain any jokers, so its strength doesn't increase.
+//     KK677 is now the only two pair, making it the second-weakest hand.
+//     T55J5, KTJJT, and QQQJA are now all four of a kind! T55J5 gets rank 3, QQQJA gets rank 4, and KTJJT gets rank 5.
+//
+// With the new joker rule, the total winnings in this example are 5905.
+//
+// Using the new joker rule, find the rank of every hand in your set. What are the new total winnings?
 const std = @import("std");
 
 const Options = struct { allocator: std.mem.Allocator = std.heap.page_allocator };
@@ -93,6 +117,7 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         var rank: u8 = 1;
         var pair: ?u8 = null;
         var triple: ?u8 = null;
+        var jokers: u8 = @intCast(std.mem.count(u8, cards, "J"));
 
         // Sort card
         var sort = try options.allocator.alloc(u8, 5);
@@ -101,40 +126,51 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         var i: u8 = 0;
         while (i < 5) : (i += 1) {
             const count: u8 = @intCast(std.mem.count(u8, cards, cards[i .. i + 1]));
+            const is_joker = cards[i] == 'J';
+            const other_jokers = if (is_joker) jokers - 1 else jokers;
 
             // Rank hand by type
             if (count == 5) {
                 rank = 7;
             } else if (count == 4) {
-                rank = 6;
+                rank = if (other_jokers > 0) 7 else 6;
             } else if (count == 3) {
                 triple = cards[i];
                 if (pair != null) {
-                    rank = 5;
+                    rank = if (other_jokers > 0) 7 else 5;
                 } else {
-                    rank = 4;
+                    rank = if (other_jokers > 0) 6 else 4;
                 }
             } else if (count == 2) {
                 if (triple != null) {
                     pair = cards[i];
-                    rank = 5;
+                    rank = if (is_joker or other_jokers > 0) 7 else 5;
                 } else if (pair != null and pair != cards[i]) {
-                    rank = 3;
+                    rank = if (is_joker or pair == 'J') 6 else 3;
                 } else if (pair == null) {
                     pair = cards[i];
-                    rank = 2;
+                    rank = if (is_joker) 4 else 2;
                 }
             }
 
             // Alpha sort cards
             sort[i] = switch (cards[i]) {
                 'T' => 'a',
-                'J' => 'b',
+                'J' => '1',
                 'Q' => 'c',
                 'K' => 'd',
                 'A' => 'e',
                 else => cards[i],
             };
+        }
+
+        // Post-fixes for jokers
+        if (rank == 3 and jokers > 0) {
+            rank = 5; // two pair => full house
+        } else if (rank == 2 and jokers > 0) {
+            rank = 4; // single pair => triple
+        } else if (rank == 1 and jokers > 0) {
+            rank = 2; // singles => double
         }
 
         // std.debug.print("cards={s}, bid={}, rank={}, sort={s}\n", .{ cards, bid, rank, sort });
@@ -148,7 +184,8 @@ pub fn solve(input: []const u8, options: Options) !Solution {
     // Add winnings by index
     for (sorted_hands, 0..) |hand, i| {
         const total_rank: u32 = @intCast(i + 1);
-        // std.debug.print("total_rank={}, sort={s}, hand={}\n", .{ total_rank, hand.sort, hand });
+        // if (std.mem.containsAtLeast(u8, hand.sort, 1, "1"))
+        std.debug.print("total_rank={}, sort={s}, hand={}\n", .{ total_rank, hand.sort, hand });
         total_winnings += total_rank * hand.bid;
     }
 
@@ -172,5 +209,5 @@ test "example test" {
         \\QQQJA 483
     ;
     const solution = try solve(input, .{});
-    try std.testing.expectEqual(@as(u32, 6440), solution.total_winnings);
+    try std.testing.expectEqual(@as(u32, 5905), solution.total_winnings);
 }
