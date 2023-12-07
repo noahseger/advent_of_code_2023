@@ -43,15 +43,33 @@
 // To see how much margin of error you have, determine the number of ways you can beat the record in each race; in this example, if you multiply these values together, you get 288 (4 * 8 * 9).
 //
 // Determine the number of ways you could beat the record in each race. What do you get if you multiply these numbers together?
+//
+// --- Part Two ---
+//
+// As the race is about to start, you realize the piece of paper with race times and record distances you got earlier actually just has very bad kerning. There's really only one race - ignore the spaces between the numbers on each line.
+//
+// So, the example from before:
+//
+// Time:      7  15   30
+// Distance:  9  40  200
+//
+// ...now instead means this:
+//
+// Time:      71530
+// Distance:  940200
+//
+// Now, you have to figure out how many ways there are to win this single race. In this example, the race lasts for 71530 milliseconds and the record distance you need to beat is 940200 millimeters. You could hold the button anywhere from 14 to 71516 milliseconds and beat the record, a total of 71503 ways!
+
+// How many ways can you beat the record in this one much longer race?
 const std = @import("std");
 
 const Options = struct { allocator: std.mem.Allocator = std.heap.page_allocator };
 
-const Solution = struct { ways_to_win: u32 };
+const Solution = struct { ways_to_win: u64 };
 
 const Race = struct {
-    duration: u32,
-    record: u32,
+    duration: u64,
+    record: u64,
 };
 
 pub fn main() !void {
@@ -74,10 +92,11 @@ pub fn main() !void {
 
 pub fn solve(input: []const Race, options: Options) !Solution {
     _ = options;
+    // const part_two_race = Race{ .duration = 71530, .record = 940200 };
 
-    var ways_to_win: u32 = 1;
+    var ways_to_win: u64 = 1;
     for (input) |race| {
-        var ways_to_win_race: u32 = 0;
+        var ways_to_win_race: u64 = 0;
         for (1..race.duration) |charge_time| {
             const travel_time = race.duration - charge_time;
             const distance = charge_time * travel_time;
@@ -106,5 +125,13 @@ test "example test" {
     var input = [_]Race{ race1, race2, race3 };
 
     const solution = try solve(input[0..], .{});
-    try std.testing.expectEqual(@as(u32, 288), solution.ways_to_win);
+    try std.testing.expectEqual(@as(u64, 288), solution.ways_to_win);
+}
+
+test "part two" {
+    const race = Race{ .duration = 38677673, .record = 234102711571236 };
+    var input = [_]Race{race};
+
+    const solution = try solve(input[0..], .{});
+    try std.testing.expectEqual(@as(u64, 23654842), solution.ways_to_win);
 }
