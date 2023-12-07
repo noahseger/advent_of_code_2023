@@ -98,11 +98,27 @@
 // So, the lowest location number in this example is 35.
 //
 // What is the lowest location number that corresponds to any of the initial seed numbers?
+//
+// --- Part Two ---
+//
+// Everyone will starve if you only plant such a small number of seeds. Re-reading the almanac, it looks like the seeds: line actually describes ranges of seed numbers.
+//
+// The values on the initial seeds: line come in pairs. Within each pair, the first value is the start of the range and the second value is the length of the range. So, in the first line of the example above:
+//
+// seeds: 79 14 55 13
+//
+// This line describes two ranges of seed numbers to be planted in the garden. The first range starts with seed number 79 and contains 14 values: 79, 80, ..., 91, 92. The second range starts with seed number 55 and contains 13 values: 55, 56, ..., 66, 67.
+//
+// Now, rather than considering four seed numbers, you need to consider a total of 27 seed numbers.
+//
+// In the above example, the lowest location number can be obtained from seed number 82, which corresponds to soil 84, fertilizer 84, water 84, light 77, temperature 45, humidity 46, and location 46. So, the lowest location number is 46.
+//
+// Consider all of the initial seed numbers listed in the ranges on the first line of the almanac. What is the lowest location number that corresponds to any of the initial seed numbers?
 const std = @import("std");
 
 const Options = struct { allocator: std.mem.Allocator = std.heap.page_allocator };
 
-const Solution = struct { lowest_location_number: u32 };
+const Solution = struct { lowest_location_number: u32, lowest_location_number_for_range: u32 };
 
 const MapRange = struct {
     destination: u32,
@@ -121,22 +137,35 @@ pub fn main() !void {
 
 pub fn solve(input: []const u8, options: Options) !Solution {
     var lowest_location_number: u32 = std.math.maxInt(u32);
+    var lowest_location_number_for_range: u32 = std.math.maxInt(u32);
     // std.debug.print("maxInt={}\n", .{lowest_location_number});
 
     var lines = std.mem.split(u8, input, "\n");
 
     // Parse seed numbers from first line...
     var seeds = std.AutoHashMap(u32, void).init(options.allocator);
-    defer seeds.deinit();
+
+    // In part two, seed ranges are maps from start -> length of range
+    var seed_ranges = std.AutoHashMap(u32, u32).init(options.allocator);
 
     var seed_line_chunks = std.mem.split(u8, lines.next().?, ": ");
     _ = seed_line_chunks.next();
 
+    var range_start: ?u32 = null;
     var raw_seeds = std.mem.split(u8, seed_line_chunks.next().?, " ");
     while (raw_seeds.next()) |raw_seed| {
+        // Part one...
         const seed = try std.fmt.parseInt(u32, raw_seed, 10);
         try seeds.put(seed, {});
         // std.debug.print("seed={}\n", .{seed});
+
+        // Part two...
+        if (range_start == null) {
+            range_start = seed;
+        } else {
+            try seed_ranges.put(range_start.?, seed);
+            range_start = null;
+        }
     }
 
     // Allocate range maps...
@@ -204,7 +233,34 @@ pub fn solve(input: []const u8, options: Options) !Solution {
         }
     }
 
-    return .{ .lowest_location_number = lowest_location_number };
+    // Part two...
+    // TODO: Fix horrible performance.
+    // Rework starting from the smallest location,
+    // walking backward to the first matching seed.
+    // If none, move to smallest humidity, etc etc.
+    var seed_range_entries = seed_ranges.iterator();
+    while (seed_range_entries.next()) |entry| {
+        var i: u32 = 0;
+        while (i < entry.value_ptr.*) : (i += 1) {
+            const seed = entry.key_ptr.* + i;
+            const soil = mapRange(seed, seedToSoilMap);
+            const fertilizer = mapRange(soil, soilToFertilizerMap);
+            const water = mapRange(fertilizer, fertilizerToWaterMap);
+            const light = mapRange(water, waterToLightMap);
+            const temperature = mapRange(light, lightToTemperatureMap);
+            const humidity = mapRange(temperature, temperatureToHumidityMap);
+            const location = mapRange(humidity, humidityToLocationMap);
+
+            if (location < lowest_location_number_for_range) {
+                lowest_location_number_for_range = location;
+            }
+        }
+    }
+
+    return .{
+        .lowest_location_number = lowest_location_number,
+        .lowest_location_number_for_range = lowest_location_number_for_range,
+    };
 }
 
 fn parseRange(line: []const u8) !MapRange {
@@ -266,4 +322,5 @@ test "example test" {
     ;
     const solution = try solve(input, .{});
     try std.testing.expectEqual(@as(u32, 35), solution.lowest_location_number);
+    try std.testing.expectEqual(@as(u32, 46), solution.lowest_location_number_for_range);
 }
