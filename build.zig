@@ -13,13 +13,13 @@ pub fn build(b: *std.Build) void {
     // Standard optimization options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
-    const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseFast });
 
     const exe = b.addExecutable(.{
         .name = "advent_of_code_2023",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/01_trebuchet.zig" },
+        .root_source_file = .{ .path = "src/08_haunted_wasteland.zig" },
         .target = target,
         .optimize = optimize,
     });
@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/01_trebuchet.zig" },
+        .root_source_file = .{ .path = "src/08_haunted_wasteland.zig" },
         .target = target,
         .optimize = optimize,
     });
