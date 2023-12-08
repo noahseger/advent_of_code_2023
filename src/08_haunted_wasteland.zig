@@ -70,20 +70,18 @@ const std = @import("std");
 
 const Options = struct { allocator: std.mem.Allocator = std.heap.page_allocator };
 
-const Solution = struct { required_steps: u32, required_steps_as_ghost: u32 };
+const Solution = struct { required_steps: u32, required_steps_as_ghost: u64 };
 
 const Map = struct {
     instructions: []const u8,
     elements: std.StringHashMap([2][]const u8),
-    ghost_path: std.ArrayList(u32),
-    ghost_cache: std.StringHashMap(void),
+    ghost_path: std.ArrayList(u64),
 
     pub fn init(instructions: []const u8, options: Options) Map {
         return .{
             .instructions = instructions,
             .elements = std.StringHashMap([2][]const u8).init(options.allocator),
-            .ghost_path = std.ArrayList(u32).init(options.allocator),
-            .ghost_cache = std.StringHashMap(void).init(options.allocator),
+            .ghost_path = std.ArrayList(u64).init(options.allocator),
         };
     }
 
@@ -91,6 +89,7 @@ const Map = struct {
     fn navigate(this: Map) u32 {
         var steps: u32 = 0;
         var element: []const u8 = "AAA";
+        if (!this.elements.contains(element)) return 0;
         while (!std.mem.eql(u8, element, "ZZZ")) : (steps += 1) {
             const elements = this.elements.get(element).?;
             const instruction = this.instructions[steps % this.instructions.len];
@@ -101,44 +100,46 @@ const Map = struct {
     }
 
     // Navigate simultaneously from __A to __Z, returning the number of steps taken.
-    fn navigateAsGhost(this: *Map) !u32 {
+    fn navigateAsGhost(this: *Map) !u64 {
         var keys = this.elements.keyIterator();
         while (keys.next()) |key| {
             if (!std.mem.endsWith(u8, key.*, "A")) {
                 continue;
             }
 
-            std.debug.print("path start: {s}\n", .{key.*});
+            // std.debug.print("path start: {s}\n", .{key.*});
 
             var steps: u32 = 0;
             var cycle_steps: u32 = 0;
             var zed_count: u32 = 0;
             var element = key.*;
-            // this.ghost_cache.clearAndFree();
-            // try this.ghost_cache.put(element, {});
-            while (zed_count < 2) {
-                steps += 1;
+            while (zed_count < 1) : (steps += 1) {
                 const instruction = this.instructions[steps % this.instructions.len];
                 const elements = this.elements.get(element).?;
                 element = if (instruction == 'L') elements[0] else elements[1];
                 if (std.mem.endsWith(u8, element, "Z")) {
-                    std.debug.print("{s} -> {s} in {} steps, {} step cycle\n", .{
-                        key.*,
-                        element,
-                        steps,
-                        steps - cycle_steps,
-                    });
+                    // std.debug.print("{s} -> {s} in {} steps, {} step cycle\n", .{
+                    //     key.*,
+                    //     element,
+                    //     steps,
+                    //     steps - cycle_steps,
+                    // });
 
                     zed_count += 1;
+
+                    // All paths on the input have cycles, but the problem _seems_ to
+                    // wants us to ignore them and use the first circuit as the multiple.
                     if (zed_count == 1) cycle_steps = steps;
                 }
-
-                // const ectoplasm = try this.ghost_cache.getOrPut(element);
             }
+
+            try this.ghost_path.append(steps);
         }
 
-        // 22103062509257??
-        return 0;
+        // 22103062509257
+        // Expect 27450 15847 22922 31978 39902 41317
+        // std.debug.print("ghost_path={any}", .{this.ghost_path.items});
+        return lcm(this.ghost_path.items);
     }
 };
 
@@ -173,28 +174,49 @@ pub fn solve(input: []const u8, options: Options) !Solution {
     }
 
     return .{
-        .required_steps = 0,
-        // .required_steps = map.navigate(),
+        .required_steps = map.navigate(),
         .required_steps_as_ghost = try map.navigateAsGhost(),
     };
 }
 
-// test "example test" {
-//     const input =
-//         \\RL
-//         \\
-//         \\AAA = (BBB, CCC)
-//         \\BBB = (DDD, EEE)
-//         \\CCC = (ZZZ, GGG)
-//         \\DDD = (DDD, DDD)
-//         \\EEE = (EEE, EEE)
-//         \\GGG = (GGG, GGG)
-//         \\ZZZ = (ZZZ, ZZZ)
-//     ;
-//     const solution = try solve(input, .{});
-//     try std.testing.expectEqual(@as(u32, 2), solution.required_steps);
-//     try std.testing.expectEqual(@as(u32, 2), solution.required_steps_as_ghost);
-// }
+fn gcd(a: u64, b: u64) u64 {
+    var x = a;
+    var y = b;
+    var temp: u64 = undefined;
+    while (y > 0) {
+        temp = x % y;
+        x = y;
+        y = temp;
+    }
+
+    return x;
+}
+
+fn lcm(numbers: []u64) u64 {
+    var result: u64 = 1;
+    for (numbers) |n| {
+        result = result * n / gcd(result, n);
+    }
+
+    return result;
+}
+
+test "example test" {
+    const input =
+        \\RL
+        \\
+        \\AAA = (BBB, CCC)
+        \\BBB = (DDD, EEE)
+        \\CCC = (ZZZ, GGG)
+        \\DDD = (DDD, DDD)
+        \\EEE = (EEE, EEE)
+        \\GGG = (GGG, GGG)
+        \\ZZZ = (ZZZ, ZZZ)
+    ;
+    const solution = try solve(input, .{});
+    try std.testing.expectEqual(@as(u32, 2), solution.required_steps);
+    try std.testing.expectEqual(@as(u64, 2), solution.required_steps_as_ghost);
+}
 
 test "ghost test" {
     const input =
@@ -208,9 +230,8 @@ test "ghost test" {
         \\22C = (22Z, 22Z)
         \\22Z = (22B, 22B)
         \\XXX = (XXX, XXX)
-        // \\AAA = (ZZZ, ZZZ)
     ;
     const solution = try solve(input, .{});
-    // try std.testing.expectEqual(@as(u32, 1), solution.required_steps);
-    try std.testing.expectEqual(@as(u32, 6), solution.required_steps_as_ghost);
+    try std.testing.expectEqual(@as(u32, 0), solution.required_steps);
+    try std.testing.expectEqual(@as(u64, 6), solution.required_steps_as_ghost);
 }
