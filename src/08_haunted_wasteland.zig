@@ -179,23 +179,21 @@ pub fn solve(input: []const u8, options: Options) !Solution {
     };
 }
 
-fn gcd(a: u64, b: u64) u64 {
-    var x = a;
-    var y = b;
-    var temp: u64 = undefined;
-    while (y > 0) {
-        temp = x % y;
-        x = y;
-        y = temp;
+fn gcd(a: *u64, b: *u64) u64 {
+    var temp: *u64 = undefined;
+    while (b > 0) {
+        temp = b.* % a.*;
+        a = b;
+        b = temp;
     }
 
-    return x;
+    return a;
 }
 
 fn lcm(numbers: []u64) u64 {
     var result: u64 = 1;
     for (numbers) |n| {
-        result = result * n / gcd(result, n);
+        result = result * n / gcd(&result, &n);
     }
 
     return result;
