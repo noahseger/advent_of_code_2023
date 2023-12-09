@@ -71,13 +71,35 @@
 // If you find the next value for each history in this example and add them together, you get 114.
 //
 // Analyze your OASIS report and extrapolate the next value for each history. What is the sum of these extrapolated values?
+//
+// --- Part Two ---
+//
+// Of course, it would be nice to have even more history included in your report. Surely it's safe to just extrapolate backwards as well, right?
+//
+// For each history, repeat the process of finding differences until the sequence of differences is entirely zero. Then, rather than adding a zero to the end and filling in the next values of each previous sequence, you should instead add a zero to the beginning of your sequence of zeroes, then fill in new first values for each previous sequence.
+//
+// In particular, here is what the third example history looks like when extrapolating back in time:
+//
+// 5  10  13  16  21  30  45
+//   5   3   3   5   9  15
+//    -2   0   2   4   6
+//       2   2   2   2
+//         0   0   0
+//
+// Adding the new values on the left side of each sequence from bottom to top eventually reveals the new left-most history value: 5.
+//
+// Doing this for the remaining example data above results in previous values of -3 for the first history and 0 for the second history. Adding all three new values together produces 2.
+//
+// Analyze your OASIS report again, this time extrapolating the previous value for each history. What is the sum of these extrapolated values?
 const std = @import("std");
 const Stack = std.atomic.Stack;
+
+const Extrapolation = struct { backwards: i32, forwards: i32 };
 
 const History = struct {
     values: std.ArrayList(i32),
 
-    fn extrapolate(this: *History) !i32 {
+    fn extrapolate(this: *History) !Extrapolation {
         var stack = Stack(std.ArrayList(i32)).init();
         var values = this.values;
         var all_zeros: bool = false;
@@ -103,18 +125,20 @@ const History = struct {
             values = next_values;
         }
 
-        var extrapolated_value: i32 = 0;
+        var backwards: i32 = 0;
+        var forwards: i32 = 0;
         while (!stack.isEmpty()) {
             const node = stack.pop();
             const items = node.?.data.items;
-            extrapolated_value = items[items.len - 1] + extrapolated_value;
+            forwards = items[items.len - 1] + forwards;
+            backwards = items[0] - backwards;
             // std.debug.print("node={any}, extrapolated_value={}\n", .{
             //     items,
             //     extrapolated_value,
             // });
         }
 
-        return extrapolated_value;
+        return .{ .backwards = backwards, .forwards = forwards };
     }
 };
 
@@ -125,7 +149,14 @@ test "example test" {
         \\10 13 16 21 30 45
     ;
     const solution = try solve(input, .{});
-    try std.testing.expectEqual(@as(i32, 114), solution.sum_of_extrapolated_values);
+    try std.testing.expectEqual(
+        @as(i32, 114),
+        solution.sum_of_forwards_extrapolations,
+    );
+    try std.testing.expectEqual(
+        @as(i32, 2),
+        solution.sum_of_backwards_extrapolations,
+    );
 }
 
 pub fn main() !void {
@@ -135,7 +166,8 @@ pub fn main() !void {
 }
 
 fn solve(input: []const u8, options: Options) !Solution {
-    var sum_of_extrapolated_values: i32 = 0;
+    var sum_of_forwards_extrapolations: i32 = 0;
+    var sum_of_backwards_extrapolations: i32 = 0;
 
     var lines = std.mem.split(u8, input, "\n");
 
@@ -151,14 +183,20 @@ fn solve(input: []const u8, options: Options) !Solution {
         }
 
         var history = History{ .values = values };
-        sum_of_extrapolated_values += try history.extrapolate();
+        const extrapoliation = try history.extrapolate();
+        sum_of_forwards_extrapolations += extrapoliation.forwards;
+        sum_of_backwards_extrapolations += extrapoliation.backwards;
     }
 
-    return .{ .sum_of_extrapolated_values = sum_of_extrapolated_values };
+    return .{
+        .sum_of_forwards_extrapolations = sum_of_forwards_extrapolations,
+        .sum_of_backwards_extrapolations = sum_of_backwards_extrapolations,
+    };
 }
 
 const Solution = struct {
-    sum_of_extrapolated_values: i32,
+    sum_of_forwards_extrapolations: i32,
+    sum_of_backwards_extrapolations: i32,
 };
 
 const Options = struct {
