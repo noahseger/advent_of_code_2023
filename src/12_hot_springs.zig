@@ -72,6 +72,37 @@
 // Adding all of the possible arrangement counts together produces a total of 21 arrangements.
 
 // For each row, count all of the different arrangements of operational and broken springs that meet the given criteria. What is the sum of those counts?
+
+// --- Part Two ---
+
+// As you look out at the field of springs, you feel like there are way more springs than the condition records list. When you examine the records, you discover that they were actually folded up this whole time!
+
+// To unfold the records, on each row, replace the list of spring conditions with five copies of itself (separated by ?) and replace the list of contiguous groups of damaged springs with five copies of itself (separated by ,).
+
+// So, this row:
+
+// .# 1
+
+// Would become:
+
+// .#?.#?.#?.#?.# 1,1,1,1,1
+
+// The first line of the above example would become:
+
+// ???.###????.###????.###????.###????.### 1,1,3,1,1,3,1,1,3,1,1,3,1,1,3
+
+// In the above example, after unfolding, the number of possible arrangements for some rows is now much larger:
+
+//     ???.### 1,1,3 - 1 arrangement
+//     .??..??...?##. 1,1,3 - 16384 arrangements
+//     ?#?#?#?#?#?#?#? 1,3,1,6 - 1 arrangement
+//     ????.#...#... 4,1,1 - 16 arrangements
+//     ????.######..#####. 1,6,5 - 2500 arrangements
+//     ?###???????? 3,2,1 - 506250 arrangements
+
+// After unfolding, adding all of the possible arrangement counts together produces 525152.
+
+// Unfold your condition records; what is the new sum of possible arrangement counts?
 const std = @import("std");
 
 const Record = struct { arrangement: []const u8, counts: []const u64 };
@@ -111,11 +142,13 @@ pub fn main() !void {
 
 fn solve(input: []const u8, options: Options) !Solution {
     var part_one: u64 = 0;
+    var part_two: u64 = 0;
 
     // var cache = std.HashMap(Record, u64, Record, std.hash_map.default_max_load_percentage);
     var cache = Cache.init(options.allocator);
     // std.meta.eql(Record{ .arrangement = "foo", .counts = .{ 1, 2, 3 } }, Record{ .arrangement = "bar", .counts = .{ 1, 2, 3 } });
 
+    // Part one
     var lines = std.mem.split(u8, input, "\n");
     while (lines.next()) |line| {
         if (line.len == 0) break;
@@ -133,9 +166,37 @@ fn solve(input: []const u8, options: Options) !Solution {
         part_one += try fit(pattern, counts.items, &cache);
     }
 
+    // Part two
+    lines = std.mem.split(u8, input, "\n");
+    while (lines.next()) |line| {
+        if (line.len == 0) break;
+
+        var chunks = std.mem.splitScalar(u8, line, ' ');
+        const pattern = chunks.next().?;
+
+        const count_chunk = chunks.next().?;
+        var count_iterator = std.mem.splitScalar(u8, count_chunk, ',');
+        var counts = std.ArrayList(u64).init(options.allocator);
+        while (count_iterator.next()) |raw_count| {
+            const count = try std.fmt.parseInt(u64, raw_count, 10);
+            try counts.append(count);
+        }
+
+        // Unfold
+        var unfolded_pattern = std.ArrayList(u8).init(options.allocator);
+        var unfolded_counts = std.ArrayList(u64).init(options.allocator);
+        for (0..5) |i| {
+            try unfolded_pattern.appendSlice(pattern);
+            if (i != 4) try unfolded_pattern.append('?');
+            try unfolded_counts.appendSlice(counts.items);
+        }
+
+        part_two += try fit(unfolded_pattern.items, unfolded_counts.items, &cache);
+    }
+
     // std.debug.print("{} galaxies...\n", .{galaxies.items.len});
 
-    return .{ .part_one = part_one, .part_two = 0 };
+    return .{ .part_one = part_one, .part_two = part_two };
 }
 
 fn fit(pattern: []const u8, counts: []const u64, cache: *Cache) !u64 {
