@@ -94,13 +94,23 @@
 // In this example, after expanding the universe, the sum of the shortest path between all 36 pairs of galaxies is 374.
 //
 // Expand the universe, then find the length of the shortest path between every pair of galaxies. What is the sum of these lengths?
+//
+// --- Part Two ---
+//
+// The galaxies are much older (and thus much farther apart) than the researcher initially estimated.
+//
+// Now, instead of the expansion you did before, make each empty row or column one million times larger. That is, each empty row should be replaced with 1000000 empty rows, and each empty column should be replaced with 1000000 empty columns.
+//
+// (In the example above, if each empty row or column were merely 10 times larger, the sum of the shortest paths between every pair of galaxies would be 1030. If each empty row or column were merely 100 times larger, the sum of the shortest paths between every pair of galaxies would be 8410. However, your universe will need to expand far beyond these values.)
+//
+// Starting with the same initial image, expand the universe according to these new rules, then find the length of the shortest path between every pair of galaxies. What is the sum of these lengths?
 const std = @import("std");
 
 const Galaxy = struct {
-    y: i32,
-    x: i32,
+    y: i64,
+    x: i64,
 
-    fn distance(this: Galaxy, other: Galaxy) !i32 {
+    fn distance(this: Galaxy, other: Galaxy) !i64 {
         const x = try std.math.absInt(this.x - other.x);
         const y = try std.math.absInt(this.y - other.y);
         return x + y;
@@ -121,7 +131,7 @@ test "example test" {
         \\#...#.....
     ;
     const solution = try solve(input, .{});
-    try std.testing.expectEqual(@as(i32, 374), solution.part_one);
+    try std.testing.expectEqual(@as(i64, 374), solution.part_one);
 }
 
 pub fn main() !void {
@@ -167,12 +177,12 @@ fn solve(input: []const u8, options: Options) !Solution {
         for (galaxies.items) |*galaxy| {
             if (galaxy.y > y2 + expansion) {
                 // std.debug.print("expanding galaxy y > {}: {} ", .{ y2, galaxy });
-                galaxy.y += 1;
+                galaxy.y += 999999;
                 // std.debug.print("to {}\n", .{galaxy});
             }
         }
 
-        expansion += 1;
+        expansion += 999999;
     }
 
     // Expand columns
@@ -191,19 +201,19 @@ fn solve(input: []const u8, options: Options) !Solution {
         for (galaxies.items) |*galaxy| {
             if (galaxy.x > x2 + expansion) {
                 // std.debug.print("expanding galaxy x > {}: {} ", .{ x2, galaxy });
-                galaxy.x += 1;
+                galaxy.x += 999999;
                 // std.debug.print("to {}\n", .{galaxy});
             } else {
                 // std.debug.print("...ignoring expansion x > {}: {}\n", .{ x2, galaxy });
             }
         }
 
-        expansion += 1;
+        expansion += 999999;
     }
 
     // Find all galaxy distances
-    var part_one: i32 = 0;
-    var pairs: i32 = 0;
+    var part_one: i64 = 0;
+    var pairs: i64 = 0;
     for (galaxies.items, 0..) |galaxy, i| {
         // std.debug.print("adjusted_galaxy={}\n", .{galaxy});
         var j: usize = 0;
@@ -217,7 +227,7 @@ fn solve(input: []const u8, options: Options) !Solution {
     return .{ .part_one = part_one, .part_two = 0 };
 }
 
-const Solution = struct { part_one: i32, part_two: i32 };
+const Solution = struct { part_one: i64, part_two: i64 };
 
 const Options = struct {
     allocator: std.mem.Allocator = std.heap.page_allocator,
