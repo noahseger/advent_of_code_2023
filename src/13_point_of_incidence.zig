@@ -61,6 +61,60 @@
 // To summarize your pattern notes, add up the number of columns to the left of each vertical line of reflection; to that, also add 100 multiplied by the number of rows above each horizontal line of reflection. In the above example, the first pattern's vertical line has 5 columns to its left and the second pattern's horizontal line has 4 rows above it, a total of 405.
 
 // Find the line of reflection in each of the patterns in your notes. What number do you get after summarizing all of your notes?
+
+// --- Part Two ---
+
+// You resume walking through the valley of mirrors and - SMACK! - run directly into one. Hopefully nobody was watching, because that must have been pretty embarrassing.
+
+// Upon closer inspection, you discover that every mirror has exactly one smudge: exactly one . or # should be the opposite type.
+
+// In each pattern, you'll need to locate and fix the smudge that causes a different reflection line to be valid. (The old reflection line won't necessarily continue being valid after the smudge is fixed.)
+
+// Here's the above example again:
+
+// #.##..##.
+// ..#.##.#.
+// ##......#
+// ##......#
+// ..#.##.#.
+// ..##..##.
+// #.#.##.#.
+
+// #...##..#
+// #....#..#
+// ..##..###
+// #####.##.
+// #####.##.
+// ..##..###
+// #....#..#
+
+// The first pattern's smudge is in the top-left corner. If the top-left # were instead ., it would have a different, horizontal line of reflection:
+
+// 1 ..##..##. 1
+// 2 ..#.##.#. 2
+// 3v##......#v3
+// 4^##......#^4
+// 5 ..#.##.#. 5
+// 6 ..##..##. 6
+// 7 #.#.##.#. 7
+
+// With the smudge in the top-left corner repaired, a new horizontal line of reflection between rows 3 and 4 now exists. Row 7 has no corresponding reflected row and can be ignored, but every other row matches exactly: row 1 matches row 6, row 2 matches row 5, and row 3 matches row 4.
+
+// In the second pattern, the smudge can be fixed by changing the fifth symbol on row 2 from . to #:
+
+// 1v#...##..#v1
+// 2^#...##..#^2
+// 3 ..##..### 3
+// 4 #####.##. 4
+// 5 #####.##. 5
+// 6 ..##..### 6
+// 7 #....#..# 7
+
+// Now, the pattern has a different horizontal line of reflection between rows 1 and 2.
+
+// Summarize your notes as before, but instead use the new different reflection lines. In this example, the first pattern's new horizontal line has 3 rows above it and the second pattern's new horizontal line has 1 row above it, summarizing to the value 400.
+
+// In each pattern, fix the smudge and find the different line of reflection. What number do you get after summarizing the new reflection line in each pattern in your notes?
 const std = @import("std");
 
 const Pattern = std.ArrayList([]const u8);
@@ -68,19 +122,19 @@ const Pattern = std.ArrayList([]const u8);
 const Mirror = struct {
     pattern: Pattern,
 
-    pub fn reflect(self: @This()) !u64 {
+    pub fn reflect(self: @This(), smudges: u8) !u64 {
         const pattern = self.pattern.items;
         const width = pattern[0].len;
         const height = pattern.len;
         const allocator = self.pattern.allocator;
 
         // Horizontal
-        var total = locate(pattern, false) * 100;
+        var total = locate(pattern, false, smudges) * 100;
 
         // Horizontal, reversed
         var reversed = Pattern.init(allocator);
         for (0..height) |i| try reversed.append(pattern[pattern.len - i - 1]);
-        total += locate(reversed.items, true) * 100;
+        total += locate(reversed.items, true, smudges) * 100;
 
         // Vertical
         // std.debug.print("Vertical...\n", .{});
@@ -92,29 +146,38 @@ const Mirror = struct {
             try vertical.append(column);
         }
 
-        total += locate(vertical.items, false);
+        total += locate(vertical.items, false, smudges);
 
         // Vertical, reversed
         var vertical_reversed = Pattern.init(allocator);
         for (0..width) |i| try vertical_reversed.append(vertical.items[width - i - 1]);
-        total += locate(vertical_reversed.items, true);
+        total += locate(vertical_reversed.items, true, smudges);
 
         return total;
     }
 
-    fn locate(pattern: [][]const u8, reversed: bool) u64 {
+    fn locate(pattern: [][]const u8, reversed: bool, smudges: u8) u64 {
         var y: usize = 1;
         while (y * 2 < pattern.len) : (y += 1) {
-            var matches: u64 = 0;
+            var differences: u8 = 0;
             for (0..y) |i| {
                 // std.debug.print("y={}, i={}, pair={},{}\n", .{ y, i, i, y * 2 - i - 1 });
-                if (std.mem.eql(u8, pattern[i], pattern[y * 2 - i - 1])) matches += 1;
+                differences += diff(pattern[i], pattern[y * 2 - i - 1]);
             }
             // std.debug.print("y={}, i={}, matches={}\n", .{ y, y, matches });
-            if (matches == y) return if (reversed) (pattern.len - y) else (y);
+            if (differences == smudges) return if (reversed) (pattern.len - y) else (y);
         }
 
         return 0;
+    }
+
+    fn diff(a: []const u8, b: []const u8) u8 {
+        var result: u8 = 0;
+        for (a, b) |v1, v2| {
+            if (v1 != v2) result += 1;
+        }
+
+        return result;
     }
 };
 
@@ -182,12 +245,10 @@ fn solve(input: []const u8, options: Options) !Solution {
         }
 
         var mirror = Mirror{ .pattern = pattern };
-        part_one += try mirror.reflect();
-        try std.io.getStdOut().writer().print("i={}, part_one={}\n", .{ i, part_one });
+        part_one += try mirror.reflect(0);
+        part_two += try mirror.reflect(1);
+        // try std.io.getStdOut().writer().print("i={}, part_one={}, part_two={}\n", .{ i, part_one, part_two });
     }
-
-    // Part two
-    part_two = 0;
 
     return .{ .part_one = part_one, .part_two = part_two };
 }
